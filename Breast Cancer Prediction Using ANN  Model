@@ -1,0 +1,88 @@
+# ==== Breast Cancer (Sklearn) — ANN + Graphs + Accuracy ====
+
+# STEP 1: Imports
+import numpy as np, pandas as pd, matplotlib.pyplot as plt
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+import tensorflow as tf
+from tensorflow.keras import layers, models
+
+# STEP 2: Load Dataset
+data = load_breast_cancer()
+X = data.data.astype('float32')
+y = data.target.astype('int32')   # 0 = malignant, 1 = benign
+feature_names = data.feature_names
+
+print("=== Dataset Preview ===")
+print(pd.DataFrame(X, columns=feature_names).head())
+print("\nShape:", X.shape)
+print("\nClass Distribution (0=malignant, 1=benign):")
+print(pd.Series(y).value_counts())
+
+# STEP 3: Train/Test Split + Scale
+Xtr, Xte, ytr, yte = train_test_split(
+    X, y, test_size=0.2, random_state=11, stratify=y
+)
+sc = StandardScaler()
+Xtr = sc.fit_transform(Xtr); Xte = sc.transform(Xte)
+
+# STEP 4: ANN
+model = models.Sequential([
+    layers.Input(shape=(Xtr.shape[1],)),
+    layers.Dense(64, activation='relu'),
+    layers.Dropout(0.2),
+    layers.Dense(32, activation='relu'),
+    layers.Dense(1, activation='sigmoid')
+])
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+# STEP 5: Train
+history = model.fit(
+    Xtr, ytr,
+    epochs=35,
+    batch_size=32,
+    validation_split=0.2,
+    verbose=0
+)
+
+# STEP 6: Evaluate
+probs = model.predict(Xte, verbose=0).ravel()
+preds = (probs > 0.5).astype(int)
+print(f"\n=== FINAL TEST ACCURACY: {accuracy_score(yte, preds):.4f} ===")
+print("\nClassification Report:\n", classification_report(
+    yte, preds, digits=4, target_names=['malignant','benign'])
+)
+
+# STEP 7: Plots — Accuracy
+plt.figure()
+plt.plot(history.history['accuracy'], label='Train Acc')
+plt.plot(history.history['val_accuracy'], label='Val Acc')
+plt.xlabel('Epoch'); plt.ylabel('Accuracy')
+plt.title('Training vs Validation Accuracy — Breast Cancer')
+plt.legend(); plt.grid(True); plt.tight_layout(); plt.show()
+
+# STEP 8: Plots — Loss
+plt.figure()
+plt.plot(history.history['loss'], label='Train Loss')
+plt.plot(history.history['val_loss'], label='Val Loss')
+plt.xlabel('Epoch'); plt.ylabel('Loss')
+plt.title('Training vs Validation Loss — Breast Cancer')
+plt.legend(); plt.grid(True); plt.tight_layout(); plt.show()
+
+# STEP 9: Confusion Matrix
+cm = confusion_matrix(yte, preds)
+plt.figure()
+plt.imshow(cm, cmap='Blues')
+plt.title('Confusion Matrix — Breast Cancer')
+plt.xlabel('Predicted'); plt.ylabel('True'); plt.colorbar()
+ticks = np.arange(2); labels = ['malignant','benign']
+plt.xticks(ticks, labels, rotation=45, ha='right')
+plt.yticks(ticks, labels)
+th = cm.max()/2
+for i in range(2):
+    for j in range(2):
+        plt.text(j, i, str(cm[i,j]), ha='center', va='center',
+                 color='white' if cm[i,j] > th else 'black')
+plt.tight_layout(); plt.show()
